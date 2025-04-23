@@ -170,12 +170,12 @@ std::istream& operator>>(std::istream& in, G4FermiChargeNumber& charge);
 
 constexpr G4FermiAtomicMass operator""_m(unsigned long long mass)
 {
-  return G4FermiAtomicMass(mass);
+  return G4FermiAtomicMass(static_cast<std::uint32_t>(mass));
 }
 
 constexpr G4FermiChargeNumber operator""_c(unsigned long long charge)
 {
-  return G4FermiChargeNumber(charge);
+  return G4FermiChargeNumber(static_cast<std::uint32_t>(charge));
 }
 
 #define FERMI_ASSERT_MSG(COND, MSG)                                                             \
