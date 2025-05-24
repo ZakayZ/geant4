@@ -184,19 +184,19 @@ try {
 
   // get phase space weights for every split
   // we can't cache them, because calculations is probabilistic
-  weights_.resize(splits.size());
-  std::transform(splits.begin(), splits.end(), weights_.begin(),
+  std::vector<G4double> weights(splits.size());
+  std::transform(splits.begin(), splits.end(), weights.begin(),
                  [atomicMass = particle.GetAtomicMass(),
                   totalEnergy = particle.GetMomentum().m()](const auto& split) {
                    return G4FermiSplitter::DecayWeight(split, atomicMass, totalEnergy);
                  });
 
-  if (std::all_of(weights_.begin(), weights_.end(), [](auto weight) { return weight == 0.; })) {
+  if (std::all_of(weights.begin(), weights.end(), [](auto weight) { return weight == 0.; })) {
     FERMI_LOG_DEBUG(verbosity_, "Every split has zero weight");
     return {particle};
   }
 
-  const auto& chosenSplit = splits[SampleWeightDistribution(weights_)];
+  const auto& chosenSplit = splits[SampleWeightDistribution(weights)];
   FERMI_LOG_DEBUG(verbosity_,
                   "From " << splits.size() << " splits chosen split: " << LogSplit(chosenSplit));
 
@@ -212,18 +212,21 @@ catch (std::exception& e) {
 void G4FermiBreakUpAN::Initialise()
 {
   if (G4NucleiProperties::GetNuclearMass(2, 0) <= 0.) {
+    FERMI_LOG_WARN(verbosity_, "Creating Baryon particles to handle neutrons and protons");
     G4BaryonConstructor pCBar;
     pCBar.ConstructParticle();
   }
   G4FermiNucleiProperties::Instance().Initialize();
 
   {
+    FERMI_LOG_WARN(verbosity_, "Filling G4FermiFragmentPool with fragments");
     auto pool = G4FermiFragmentPool::DefaultPoolSource();
     pool.Initialize();
     G4FermiFragmentPool::Instance().Initialize(pool);
   }
 
   // order is important here, we use G4FermiFragmentPool to create splits!
+  FERMI_LOG_WARN(verbosity_, "Generating and Caching pissible Fermi splits");
   splits_ = PossibleSplits();
   for (auto a = 1; a < MAX_A; ++a) {
     for (auto z = 0; z <= a; ++z) {
@@ -277,12 +280,15 @@ G4FermiBreakUpAN::SplitToParticles(const G4FermiParticle& sourceParticle,
   std::vector<G4LorentzVector> particlesMomentum;
   try {
     particlesMomentum = phaseSampler.CalculateDecay(sourceParticle.GetMomentum(), splitMasses);
+    if (particlesMomentum.size() == 0) {
+      return {sourceParticle};
+    }
   }
   catch (std::exception& e) {
-    FERMI_LOG_WARN(verbosity_,
-                   e.what() << " with split weight: "
-                            << G4FermiSplitter::DecayWeight(split, sourceParticle.GetAtomicMass(),
-                                                            sourceParticle.GetMomentum().m()));
+    FERMI_LOG_DEBUG(verbosity_,
+                    e.what() << " with split weight: "
+                             << G4FermiSplitter::DecayWeight(split, sourceParticle.GetAtomicMass(),
+                                                             sourceParticle.GetMomentum().m()));
     return {sourceParticle};
   }
 
