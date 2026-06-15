@@ -185,19 +185,19 @@ std::vector<G4FermiParticle> G4FermiBreakUpAN::BreakItUp(const G4FermiParticle& 
 
   // get phase space weights for every split
   // we can't cache them, because calculations is probabilistic
-  weights_.resize(splits.size());
-  std::transform(splits.begin(), splits.end(), weights_.begin(),
+  std::vector<G4double> weights(splits.size(), 0.);
+  std::transform(splits.begin(), splits.end(), weights.begin(),
                  [atomicMass = particle.GetAtomicMass(),
                   totalEnergy = particle.GetMomentum().m()](const auto& split) {
                    return G4FermiSplitter::DecayWeight(split, atomicMass, totalEnergy);
                  });
 
-  if (std::all_of(weights_.begin(), weights_.end(), [](auto weight) { return weight == 0.; })) {
+  if (std::all_of(weights.begin(), weights.end(), [](auto weight) { return weight == 0.; })) {
     FERMI_LOG_DEBUG(verbosity_, "Every split has zero weight");
     return {particle};
   }
 
-  const auto& chosenSplit = splits[SampleWeightDistribution(weights_)];
+  const auto& chosenSplit = splits[SampleWeightDistribution(weights)];
   FERMI_LOG_DEBUG(verbosity_,
                   "From " << splits.size() << " splits chosen split: " << LogSplit(chosenSplit));
 
@@ -210,13 +210,10 @@ void G4FermiBreakUpAN::Initialise()
     G4BaryonConstructor pCBar;
     pCBar.ConstructParticle();
   }
-  G4FermiNucleiProperties::Instance().Initialize();
 
-  {
-    auto pool = G4FermiFragmentPoolAN::DefaultPoolANSource();
-    pool.Initialize();
-    G4FermiFragmentPoolAN::Instance().Initialize(pool);
-  }
+  auto pool = G4FermiFragmentPoolAN::DefaultPoolANSource();
+  pool.Initialize();
+  G4FermiFragmentPoolAN::Instance().TryInitialize(pool);
 
   // order is important here, we use G4FermiFragmentPool to create splits!
   splits_ = PossibleSplits();
@@ -254,8 +251,6 @@ void G4FermiBreakUpAN::BreakFragment(G4FragmentVector* results, G4Fragment* theN
   if (fragments.size() <= 1) { return; }
 
   const auto creationTime = theNucleus->GetCreationTime();
-  // primary should be deleted
-  delete theNucleus;
   
   for (const auto& fragment : fragments) {
     auto fr = new G4Fragment(static_cast<G4int>(fragment.GetAtomicMass()),
