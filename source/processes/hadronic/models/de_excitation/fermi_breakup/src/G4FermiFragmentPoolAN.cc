@@ -53,7 +53,7 @@ G4FermiFragmentPoolAN::G4FermiFragmentPoolAN()
 {
   auto pool = G4FermiFragmentPoolAN::DefaultPoolANSource();
   pool.Initialize();
-  Initialize(pool);
+  TryInitialize(pool);
 }
 
 std::size_t G4FermiFragmentPoolAN::Count(G4FermiAtomicMass atomicMass,

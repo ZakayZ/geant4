@@ -91,8 +91,6 @@ class G4FermiBreakUpAN : public G4VFermiBreakUp
     std::vector<G4FermiParticle> SplitToParticles(const G4FermiParticle& sourceParticle,
                                                   const G4FermiFragmentVector& split) const;
 
-    // improve performance, reusing allocated memory
-    mutable std::vector<G4double> weights_;
     PossibleSplits splits_;
 
     G4int secID_;

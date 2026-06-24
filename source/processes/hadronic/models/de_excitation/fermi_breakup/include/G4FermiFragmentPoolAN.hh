@@ -35,6 +35,8 @@
 #include "G4VFermiFragmentAN.hh"
 #include "globals.hh"
 
+#include <atomic>
+
 class G4FermiFragmentPoolAN
 {
   private:
@@ -87,15 +89,20 @@ class G4FermiFragmentPoolAN
       return GetFragments(nuclei.atomicMass, nuclei.chargeNumber);
     }
 
+
     template<typename DataSource>
-    void Initialize(const DataSource& dataSource)
+    bool TryInitialize(const DataSource& dataSource)
     {
-      Initialize(dataSource.begin(), dataSource.end());
+      return TryInitialize(dataSource.begin(), dataSource.end());
     }
 
     template<typename Iter>
-    void Initialize(Iter begin, Iter end)
+    bool TryInitialize(Iter begin, Iter end)
     {
+      if (isInitialized_.exchange(true)) {
+        return false;
+      }
+
       fragments_.clear();
       static_assert(
         std::is_same_v<std::remove_const_t<typename Iter::value_type>, G4VFermiFragmentAN*>,
@@ -103,6 +110,7 @@ class G4FermiFragmentPoolAN
       for (auto it = begin; it != end; ++it) {
         AddFragment(**it);
       }
+      return true;
     }
 
     void AddFragment(const G4VFermiFragmentAN& fragment);
@@ -113,12 +121,18 @@ class G4FermiFragmentPoolAN
       return pool;
     }
 
+    bool Reset()
+    {
+      return isInitialized_.exchange(false);
+    }
+
   private:
     G4FermiFragmentPoolAN();
   
     static inline const Container EmptyContainer_ = {};
 
     std::vector<Container> fragments_;
+    std::atomic<bool> isInitialized_{false};
 };
 
 #endif  // G4FERMIFRAGMENTPOOL_HH
