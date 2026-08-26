@@ -37,10 +37,11 @@
 
 #include <G4PhysicalConstants.hh>
 
+#include <algorithm>
+#include <functional>
 #include <iterator>
 #include <numeric>
 #include <optional>
-#include <functional>
 
 namespace
 {
@@ -171,6 +172,15 @@ G4double GammaFactor(std::size_t fragmentsCount)
   return gamma;
 }
 }  // namespace
+
+G4double G4FermiSplitter::DecayThreshold(const G4FermiFragmentVector& split)
+{
+  G4double threshold = 0.;
+  for (const auto fragmentPtr : split) {
+    threshold += fragmentPtr->GetTotalEnergy();
+  }
+  return threshold + std::max(0., CoulombBarrier(split));
+}
 
 G4double G4FermiSplitter::DecayWeight(const G4FermiFragmentVector& split,
                                       G4FermiAtomicMass atomicMass, G4double totalEnergy)

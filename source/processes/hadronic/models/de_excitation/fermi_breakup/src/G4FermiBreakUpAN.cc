@@ -45,8 +45,11 @@
 #include "G4ThreeVector.hh"
 #include "Randomize.hh"
 
-#include <numeric>
+#include <algorithm>
+#include <cmath>
 #include <functional>
+#include <limits>
+#include <numeric>
 
 #ifdef G4VERBOSE
 #  define G4FERMI_VERBOSE 1
@@ -220,20 +223,40 @@ void G4FermiBreakUpAN::Initialise()
 
   // order is important here, we use G4FermiFragmentPool to create splits!
   splits_ = PossibleSplits();
+  minimumExcitationEnergies_.assign(
+    GetSlot(G4FermiAtomicMass(MAX_A - 1), G4FermiChargeNumber(MAX_A - 1)) + 1,
+    std::numeric_limits<G4double>::infinity());
   for (auto a = 1; a < MAX_A; ++a) {
     for (auto z = 0; z <= a; ++z) {
       const auto atomicMass = G4FermiAtomicMass(a);
       const auto chargeNumber = G4FermiChargeNumber(z);
+      auto splits = G4FermiSplitter::GenerateSplits({atomicMass, chargeNumber});
 
-      splits_.InsertSplits(atomicMass, chargeNumber,
-                           G4FermiSplitter::GenerateSplits({atomicMass, chargeNumber}));
+      auto minimumTotalEnergy = std::numeric_limits<G4double>::infinity();
+      for (const auto& split : splits) {
+        minimumTotalEnergy =
+          std::min(minimumTotalEnergy, G4FermiSplitter::DecayThreshold(split));
+      }
+
+      if (std::isfinite(minimumTotalEnergy)) {
+        minimumExcitationEnergies_[GetSlot(atomicMass, chargeNumber)] =
+          minimumTotalEnergy - G4FermiNucleiProperties::GetNuclearMass(atomicMass, chargeNumber);
+      }
+
+      splits_.InsertSplits(atomicMass, chargeNumber, std::move(splits));
     }
   }
 }
 
-G4bool G4FermiBreakUpAN::IsApplicable(G4int Z, G4int A, G4double /* eexc */) const
+G4bool G4FermiBreakUpAN::IsApplicable(G4int Z, G4int A, G4double eexc) const
 {
-  return Z < MAX_Z && A < MAX_A;
+  if (Z < 0 || A <= 0 || Z > A || Z >= MAX_Z || A >= MAX_A) {
+    return false;
+  }
+
+  const auto slot = GetSlot(G4FermiAtomicMass(A), G4FermiChargeNumber(Z));
+  return slot < minimumExcitationEnergies_.size()
+         && eexc > minimumExcitationEnergies_[slot];
 }
 
 void G4FermiBreakUpAN::BreakFragment(G4FragmentVector* results, G4Fragment* theNucleus)

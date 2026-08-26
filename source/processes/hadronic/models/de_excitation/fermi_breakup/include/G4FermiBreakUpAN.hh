@@ -94,6 +94,7 @@ class G4FermiBreakUpAN : public G4VFermiBreakUp
     // improve performance, reusing allocated memory
     mutable std::vector<G4double> weights_;
     PossibleSplits splits_;
+    std::vector<G4double> minimumExcitationEnergies_;
 
     G4int secID_;
     G4int verbosity_ = 0;
