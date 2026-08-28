@@ -39,6 +39,8 @@
 #include "G4VFermiFragmentAN.hh"
 
 #include "G4BaryonConstructor.hh"
+#include "G4DeexPrecoParameters.hh"
+#include "G4NuclearLevelData.hh"
 #include "G4NucleiProperties.hh"
 #include "G4PhysicalConstants.hh"
 #include "G4PhysicsModelCatalog.hh"
@@ -209,6 +211,9 @@ std::vector<G4FermiParticle> G4FermiBreakUpAN::BreakItUp(const G4FermiParticle& 
 
 void G4FermiBreakUpAN::Initialise()
 {
+  minimumExcitationEnergy_ =
+    G4NuclearLevelData::GetInstance()->GetParameters()->GetMinExcitation();
+
   if (G4NucleiProperties::GetNuclearMass(2, 0) <= 0.) {
     G4BaryonConstructor pCBar;
     pCBar.ConstructParticle();
@@ -256,7 +261,7 @@ G4bool G4FermiBreakUpAN::IsApplicable(G4int Z, G4int A, G4double eexc) const
 
   const auto slot = GetSlot(G4FermiAtomicMass(A), G4FermiChargeNumber(Z));
   return slot < minimumExcitationEnergies_.size()
-         && eexc > minimumExcitationEnergies_[slot];
+         && eexc > minimumExcitationEnergies_[slot] + minimumExcitationEnergy_;
 }
 
 void G4FermiBreakUpAN::BreakFragment(G4FragmentVector* results, G4Fragment* theNucleus)
